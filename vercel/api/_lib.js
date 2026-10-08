@@ -1,0 +1,10 @@
+const crypto=require('crypto');
+const secret=()=>process.env.AUTH_SECRET||'';
+const sign=e=>crypto.createHmac('sha256',secret()).update(String(e)).digest('hex');
+exports.mint=()=>{const e=Date.now()+864e5;return e+'.'+sign(e)};
+exports.isAdmin=req=>{const h=req.headers.authorization||'';const t=h.startsWith('Bearer ')?h.slice(7):'';const[e,s]=t.split('.');
+ if(!secret()||!e||!s||+e<Date.now())return false;const x=sign(e);return s.length==x.length&&crypto.timingSafeEqual(Buffer.from(s),Buffer.from(x))};
+exports.h256=s=>crypto.createHash('sha256').update(s).digest();
+const U=process.env.UPSTASH_REDIS_REST_URL||process.env.KV_REST_API_URL,T=process.env.UPSTASH_REDIS_REST_TOKEN||process.env.KV_REST_API_TOKEN;
+exports.redis=async cmd=>{const r=await fetch(U,{method:'POST',headers:{Authorization:'Bearer '+T,'Content-Type':'application/json'},body:JSON.stringify(cmd)});
+ const j=await r.json();if(j.error)throw new Error(j.error);return j.result};

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bagan Pertandingan</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root[data-theme=light]{--bg:#f3f1ea;--card:#fff;--tx:#1b2430;--mu:#6b7480;--bd:#d8d4c8;--ac:#0f766e;--ac2:#fff;--win:#d9f2e6}
+:root[data-theme=dark]{--bg:#0f1720;--card:#18232f;--tx:#e8eef5;--mu:#8a99a8;--bd:#2c3b4b;--ac:#f5b700;--ac2:#1a1400;--win:#233b2e}
+:root[data-theme=neon]{--bg:#07060f;--card:#120f24;--tx:#f2eaff;--mu:#9a8fc4;--bd:#3a2d78;--ac:#39ff88;--ac2:#00170a;--win:#12392b}
+:root[data-theme=ocean]{--bg:#06222f;--card:#0c3547;--tx:#e6f6fb;--mu:#8bb6c4;--bd:#1d5870;--ac:#ff7a45;--ac2:#2a0d00;--win:#14503f}
+body{font-family:Barlow,sans-serif;background:var(--bg) center/cover fixed;color:var(--tx);min-height:100vh}
+.ov{position:fixed;inset:0;background:var(--bg);opacity:.82;z-index:-1}
+.hd{font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:.01em}
+.pn{background:var(--card);border:1px solid var(--bd);border-radius:10px}
+.btn{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:.4rem .75rem;font-weight:600;font-size:.85rem;cursor:pointer}
+.btn:hover{border-color:var(--ac)}.btn.pri{background:var(--ac);color:var(--ac2);border-color:var(--ac)}
+.viewer .adm{display:none!important}.viewer .row{cursor:default}.viewer .row:hover{background:none}
+.inp{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:.4rem .6rem;color:var(--tx);width:100%;font-size:.9rem}
+.inp:focus,.btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+#bracket{display:flex;gap:44px;overflow:auto;padding:12px 4px 24px}
+.col{display:flex;flex-direction:column;justify-content:space-around;min-width:230px;gap:10px}
+.mc{background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden;position:relative}
+.mc::after{content:"";position:absolute;right:-44px;top:50%;width:44px;border-top:2px solid var(--bd)}
+.col:last-child .mc::after{display:none}
+.mh{display:flex;justify-content:space-between;align-items:center;font-size:.7rem;color:var(--mu);padding:3px 8px;border-bottom:1px solid var(--bd)}
+.row{display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;min-height:44px}
+.row+.row{border-top:1px solid var(--bd)}.row:hover{background:color-mix(in srgb,var(--ac) 12%,transparent)}
+.row.w{background:var(--win);font-weight:700}.row.l{opacity:.5}.row.tbd{cursor:default;color:var(--mu);font-style:italic}
+.av{width:30px;height:30px;border-radius:50%;object-fit:cover;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex:none}
+.sc{margin-left:auto;font-family:'Barlow Condensed';font-size:1.2rem}
+.siap{border-color:#ffe600;animation:bl 1s infinite alternate}
+@keyframes bl{from{box-shadow:0 0 0 0 #ffe60099,0 0 4px #ffe600}to{box-shadow:0 0 0 4px #ffe60055,0 0 22px #ffe600}}
+.badge{padding:0 6px;border-radius:99px;font-weight:700}
+.b-siap{background:#ffe600;color:#222;animation:bl 1s infinite alternate}.b-live{background:#e11d48;color:#fff}.b-done{background:var(--ac);color:var(--ac2)}
+.mo{position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto}
+.md{max-width:520px;width:100%;max-height:92vh;overflow:auto;padding:18px}
+.pod{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin:18px 0 6px}
+.pod>div{flex:1;max-width:150px;text-align:center}
+.blk{border-radius:8px 8px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:6px;font-size:2rem;font-family:'Barlow Condensed';font-weight:800;color:#222;animation:up .9s ease-out both}
+@keyframes up{from{height:0!important}}
+.tr{font-size:3rem;display:inline-block;animation:bn 1s ease-in-out infinite alternate}@keyframes bn{to{transform:translateY(-10px) rotate(8deg)}}
+.cf{position:fixed;top:-20px;width:9px;height:14px;z-index:60;animation:fall linear forwards;pointer-events:none}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="ov"></div>
+<header id="hdr" class="max-w-[1800px] mx-auto px-3 pt-4">
+  <div class="flex flex-wrap items-center gap-2 mb-3">
+    <button class="btn pri" onclick="goDash()">☰ Dashboard</button>
+    <select id="sel" class="inp" style="width:auto;min-width:170px" onchange="open_(this.value)" title="Pindah bagan"></select>
+    <button class="btn adm" onclick="editB()">Edit bagan</button>
+    <button class="btn adm" onclick="delSport()">Hapus</button>
+    <select id="size" class="inp adm" style="width:auto" onchange="setSize(+this.value)" title="Jumlah peserta"></select>
+    <label class="text-sm flex items-center gap-1 adm" title="Jumlah babak/set per pertandingan">Babak/set <input id="bo" type="number" min="1" max="15" list="bol" class="inp" style="width:64px" onchange="setBo(+this.value)"></label><datalist id="bol"><option value="1"><option value="3"><option value="5"><option value="7"><option value="9"></datalist>
+    <label class="text-sm flex items-center gap-1 adm"><input type="checkbox" id="third" onchange="setThird(this.checked)"> Juara 3</label>
+    <span class="flex-1"></span>
+    <button class="btn" onclick="showPod(true)">🏆 Podium</button>
+    <button class="btn pri adm" onclick="exportX('xlsx')">Excel</button>
+    <button class="btn adm" onclick="exportX('csv')">CSV</button>
+    <button class="btn adm" onclick="syncSheet()">Sync Sheets</button>
+    <button class="btn adm" onclick="settings()">⚙ Tema</button>
+    <span id="au1"></span>
+  </div>
+  <h1 id="title" class="hd text-4xl sm:text-6xl leading-none"></h1>
+  <p id="sub" class="text-sm mt-1" style="color:var(--mu)"></p>
+  <div id="tabs" class="flex flex-wrap gap-2 mt-3"></div>
+</header>
+<main id="mn" class="max-w-[1800px] mx-auto px-3 py-4">
+  <details class="pn mb-4 p-3" id="pl">
+    <summary class="font-semibold cursor-pointer">Daftar peserta</summary>
+    <div id="plist" class="grid gap-2 mt-3 sm:grid-cols-2 lg:grid-cols-4 max-h-80 overflow-auto"></div>
+  </details>
+  <div id="bracket"></div>
+</main>
+<section id="dash" class="max-w-[1800px] mx-auto px-3 py-6" hidden></section>
+<div id="modal"></div>
+<script>
+const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEY='bagan_v1',SIZES=[2,4,8,16,32,64,128],ST=['Belum Main','Berlangsung','Selesai'];
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+const mm=()=>({t:'',s:0,sa:'',sb:'',w:null,sets:[],bo:0});
+const sw=m=>{let a=0,b=0;(m.sets||[]).forEach(x=>{const p=parseFloat(x[0]),q=parseFloat(x[1]);if(isNaN(p)||isNaN(q)||p==q)return;p>q?a++:b++});return[a,b]};
+const ss=(m,sd)=>{const l=(m.sets||[]).filter(x=>x[0]!==''||x[1]!=='').map(x=>sd?x[1]+'-'+x[0]:x[0]+'-'+x[1]);return l.length?' ['+l.join(', ')+']':''};
+const boOf=m=>m.bo||sp().bo||3;
+function mk(name,size,old){const R=Math.log2(size);return{id:'s'+Date.now()+Math.random().toString(36).slice(2,5),name,cat:'',bo:3,size,third:false,bg:'',
+ players:Array.from({length:size},(_,i)=>old&&old[i]||{n:'',p:''}),
+ m:Array.from({length:R},(_,r)=>Array.from({length:size>>(r+1)},mm)),tp:mm()}}
+const fresh=()=>{const a=mk('Lomba Tenis Meja',16),b=mk('Lomba Tenis Meja',16);a.cat='Putra';b.cat='Putri';return{sports:[a,b],cur:a.id,theme:'dark',hook:'',view:'dash'}};
+if(!S||!S.sports?.length)S=fresh();
+const sp=()=>S.sports.find(x=>x.id===S.cur)||S.sports[0];
+const full=s=>s.name+(s.cat?' — '+s.cat:'');
+function withS(s,f){const o=S.cur;S.cur=s.id;try{return f()}finally{S.cur=o}}
+let ADMIN=true,SERVER=false,VER=0,TOKEN=localStorage.getItem('bagan_tok')||'',pushT,pollT;
+const auth=()=>TOKEN?{Authorization:'Bearer '+TOKEN}:{};
+function save(){try{localStorage.setItem('bagan_nav',JSON.stringify({cur:S.cur,view:S.view}))}catch(e){}
+ if(!SERVER){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Penyimpanan penuh: gunakan foto lebih kecil')}return}
+ if(!ADMIN)return;clearTimeout(pushT);pushT=setTimeout(push,300)}
+async function push(){clearTimeout(pushT);try{const r=await fetch('api/state',{method:'PUT',headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify(S)});
+ if(r.status==401){TOKEN='';localStorage.removeItem('bagan_tok');ADMIN=false;ui();render();return toast('Sesi admin habis, silakan masuk lagi')}
+ if(!r.ok)throw 0;VER=(await r.json()).version}catch(e){toast('Gagal menyimpan ke server, coba lagi')}}
+function toast(t){const d=document.createElement('div');d.textContent=t;d.className='pn';d.style.cssText='position:fixed;bottom:16px;left:50%;transform:translateX(-50%);padding:8px 14px;z-index:99;font-weight:600';document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+/* ---- logika bagan ---- */
+const R=()=>sp().m.length;
+function rName(r){const k=R()-1-r;return k==0?'Final':k==1?'Semifinal':k==2?'Perempat Final':'Babak '+(sp().size>>r)+' Besar'}
+function slot(r,i,side){const s=sp();if(r==0)return 2*i+side;const p=s.m[r-1][2*i+side];return p.w==null?null:slot(r-1,2*i+side,p.w)}
+function pair(key){if(key=='tp'){const R_=R()-2,o=[];for(let i=0;i<2;i++){const m=sp().m[R_][i];o.push(m.w==null?null:slot(R_,i,1-m.w))}return o}
+ const[r,i]=key.split('-').map(Number);return[slot(r,i,0),slot(r,i,1)]}
+const getM=k=>k=='tp'?sp().tp:sp().m[+k.split('-')[0]][+k.split('-')[1]];
+const pn=i=>i==null?null:(sp().players[i].n||'Peserta '+(i+1));
+function keys(){const s=sp(),o=[];s.m.forEach((rr,r)=>rr.forEach((_,i)=>o.push(r+'-'+i)));if(s.third&&s.size>=4)o.push('tp');return o}
+function clearDown(r,i){const s=sp();if(r+1<s.m.length){const n=s.m[r+1][i>>1];if(n.w!=null||n.s==2){n.w=null;n.s=0;n.sa=n.sb='';n.sets=[];clearDown(r+1,i>>1)}}
+ if(r==s.m.length-2){s.tp.w=null;s.tp.s=0;s.tp.sa=s.tp.sb='';s.tp.sets=[]}}
+function adv(key,side){const m=getM(key),pr=pair(key);if(pr[0]==null||pr[1]==null)return toast('Lawan belum ditentukan');
+ const was=podReady();
+ if(m.w===side){m.w=null;m.s=0}else{m.w=side;m.s=2}
+ if(key!='tp'){const[r,i]=key.split('-').map(Number);clearDown(r,i)}
+ save();render();if(!was&&podReady())setTimeout(()=>showPod(),500)}
+function podReady(){const s=sp();return s.m[R()-1][0].w!=null&&(!s.third||s.size<4||s.tp.w!=null)}
+function podium(){const s=sp(),k=R()-1+'-0',pr=pair(k),f=s.m[R()-1][0];if(f.w==null)return null;
+ const t=s.third&&s.size>=4&&s.tp.w!=null?pair('tp')[s.tp.w]:null;return[pr[f.w],pr[1-f.w],t]}
+function nextKey(){return keys().find(k=>{const p=pair(k),m=getM(k);return p[0]!=null&&p[1]!=null&&m.s!=2&&m.s!=1})}
+/* ---- render ---- */
+function av(i){const p=sp().players[i];return p.p?`<img class="av" src="${p.p}" alt="">`:`<span class="av">${esc((pn(i)||'?').slice(0,2).toUpperCase())}</span>`}
+function card(key,label){const m=getM(key),pr=pair(key),nk=nextKey()==key;
+ const st=m.s==1?'<span class="badge b-live">LIVE</span>':m.s==2?'<span class="badge b-done">Selesai</span>':nk?'<span class="badge b-siap">SIAP-SIAP TANDING</span>':'';
+ const row=side=>{const i=pr[side],sc=side?m.sb:m.sa;if(i==null)return`<div class="row tbd">Menunggu pemenang…</div>`;
+  const c=m.w==null?'':m.w==side?'w':'l';
+  return`<div class="row ${c}" onclick="adv('${key}',${side})" title="Klik untuk memajukan pemenang">${av(i)}<span class="truncate">${esc(pn(i))}</span><span class="sc">${esc(sc)}</span></div>`};
+ return`<div class="mc ${nk&&m.s!=1?'siap':''}"><div class="mh"><span>${esc(label)} (Bo${boOf(m)})${m.t?' · '+esc(m.t.replace('T',' ')):''}</span><span class="flex items-center gap-1">${st}<button onclick="editM('${key}')" class="px-1 adm" title="Jadwal & skor" aria-label="Edit jadwal">✎</button></span></div>${row(0)}${row(1)}${sl(m)}</div>`}
+function sl(m){const l=(m.sets||[]).filter(x=>x[0]!==''||x[1]!=='').map(x=>x[0]+'-'+x[1]);return l.length?`<div class="text-xs px-2 py-1" style="color:var(--mu);border-top:1px solid var(--bd)">Babak: ${esc(l.join(', '))}</div>`:''}
+function render(){const s=sp(),dv=S.view!='b';document.documentElement.dataset.theme=S.theme;document.body.style.backgroundImage=!dv&&s.bg?`url(${s.bg})`:'none';
+ $('hdr').hidden=$('mn').hidden=dv;$('dash').hidden=!dv;if(dv)return renderDash();
+ $('sel').innerHTML=S.sports.map(x=>`<option value="${x.id}" ${x.id==s.id?'selected':''}>${esc(full(x))}</option>`).join('');
+ $('size').innerHTML=SIZES.map(n=>`<option ${n==s.size?'selected':''} value="${n}">${n} peserta</option>`).join('');
+ $('au1').innerHTML=authBtn();$('bo').value=s.bo||3;$('third').checked=s.third;$('third').disabled=s.size<4;
+ $('title').innerHTML=esc(s.name)+(s.cat?` <span style="color:var(--ac)">${esc(s.cat)}</span>`:'');
+ const sib=S.sports.filter(x=>x.name==s.name);$('tabs').innerHTML=sib.length>1?sib.map(x=>`<button class="btn ${x.id==s.id?'pri':''}" onclick="open_('${x.id}')">${esc(x.cat||'Utama')}</button>`).join(''):'';
+ const done=s.m.flat().filter(m=>m.s==2).length,tot=s.m.flat().length;$('sub').textContent=`${s.size} peserta · ${done}/${tot} pertandingan selesai`;
+ let h=s.m.map((rr,r)=>`<div><div class="hd text-xl mb-2" style="color:var(--ac)">${rName(r)}</div><div class="col" style="min-height:${(s.size>>1)*118}px">${rr.map((_,i)=>card(r+'-'+i,'M'+(i+1))).join('')}</div></div>`).join('');
+ if(s.third&&s.size>=4)h+=`<div><div class="hd text-xl mb-2" style="color:var(--ac)">Juara 3</div><div class="col" style="min-height:100px;justify-content:flex-start">${card('tp','Perebutan juara 3')}</div></div>`;
+ $('bracket').innerHTML=h;
+ if(!$('pl').dataset.f){renderPL()}}
+function renderPL(){const s=sp();$('plist').innerHTML=s.players.map((p,i)=>!ADMIN?`<div class="flex items-center gap-2">${av(i)}<span>${esc(pn(i))}</span></div>`:`<div class="flex items-center gap-2"><button onclick="editP(${i})" aria-label="Foto peserta ${i+1}">${av(i)}</button><input class="inp" value="${esc(p.n)}" placeholder="Peserta ${i+1}" oninput="sp().players[${i}].n=this.value;save();render()" onfocus="$('pl').dataset.f=1" onblur="delete $('pl').dataset.f"></div>`).join('')}
+/* ---- cabang & format ---- */
+function open_(id){S.cur=id;S.view='b';save();render();renderPL();scrollTo(0,0)}
+function goDash(){S.view='dash';save();render();scrollTo(0,0)}
+function newB(pre){const names=[...new Set(S.sports.map(x=>x.name))];
+ modal(`<h3 class="hd text-2xl mb-3">Bagan baru</h3>
+ <label class="text-sm">Nama lomba</label><input id="nn" class="inp mb-2" list="nl" value="${esc(pre||'')}" placeholder="mis. Lomba Tenis Meja"><datalist id="nl">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+ <label class="text-sm">Kategori / nama bagan</label><input id="nc" class="inp mb-2" list="cl" placeholder="mis. Putra, Putri, Umum"><datalist id="cl"><option value="Putra"><option value="Putri"><option value="Campuran"><option value="Umum"></datalist>
+ <label class="text-sm">Jumlah babak/set per pertandingan (1, 3, 5, atau bebas)</label><input id="nb" type="number" min="1" max="15" value="3" class="inp mb-2">
+ <label class="text-sm">Jumlah peserta</label><select id="nz" class="inp mb-3">${SIZES.map(n=>`<option ${n==16?'selected':''}>${n}</option>`).join('')}</select>
+ <div class="flex gap-2 justify-end"><button class="btn" onclick="closeM()">Batal</button><button class="btn pri" onclick="mkB()">Buat &amp; buka</button></div>`)}
+function mkB(){const n=$('nn').value.trim();if(!n)return toast('Isi nama lomba');const s=mk(n,+$('nz').value);s.cat=$('nc').value.trim();s.bo=Math.max(1,Math.min(15,+$('nb').value||3));S.sports.push(s);closeM();open_(s.id)}
+function editB(){const s=sp();modal(`<h3 class="hd text-2xl mb-3">Edit bagan</h3>
+ <label class="text-sm">Nama lomba</label><input id="en" class="inp mb-2" value="${esc(s.name)}">
+ <label class="text-sm">Kategori</label><input id="ec" class="inp mb-2" value="${esc(s.cat||'')}" placeholder="Putra / Putri / …">
+ <label class="text-sm flex items-center gap-2 mb-3"><input type="checkbox" id="ea" checked> Terapkan nama lomba ke semua kategori lomba ini</label>
+ <div class="flex gap-2 justify-end"><button class="btn" onclick="closeM()">Batal</button><button class="btn pri" onclick="saveB()">Simpan</button></div>`)}
+function saveB(){const s=sp(),n=$('en').value.trim()||s.name,o=s.name;if($('ea').checked)S.sports.forEach(x=>{if(x.name==o)x.name=n});else s.name=n;s.cat=$('ec').value.trim();save();closeM();render()}
+function stats(s){return withS(s,()=>{const ks=keys(),ms=ks.map(getM),nm=i=>i==null?'menunggu':pn(i);
+ const lk=ks.find(k=>getM(k).s==1),nk=nextKey(),k=lk||nk,pd=podium();let nx='';
+ if(k){const p=pair(k),m=getM(k);nx=`${lk?'LIVE':'Berikutnya'}: ${nm(p[0])} vs ${nm(p[1])}${m.t?' · '+m.t.replace('T',' '):''}`}
+ return{done:ms.filter(m=>m.s==2).length,tot:ms.length,live:!!lk,nx,live_:lk,champ:podReady()&&pd?pn(pd[0]):'',filled:s.players.filter(p=>p.n).length}})}
+function renderDash(){const g=new Map();S.sports.forEach(s=>{if(!g.has(s.name))g.set(s.name,[]);g.get(s.name).push(s)});
+ $('dash').innerHTML=`<div class="flex flex-wrap items-center gap-3 mb-6"><h1 class="hd text-4xl sm:text-6xl leading-none">Dashboard Lomba</h1><span class="flex-1"></span><button class="btn pri adm" onclick="newB()">+ Lomba / bagan baru</button><button class="btn adm" onclick="settings()">⚙ Tema</button>${authBtn()}</div>`+
+ [...g].map(([n,l])=>`<div class="mb-8"><div class="flex items-center gap-3 mb-3"><h2 class="hd text-3xl">${esc(n)}</h2><button class="btn adm" onclick="newB('${esc(n).replace(/'/g,"\\'")}')">+ Tambah kategori</button></div><div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${l.map(s=>{const st=stats(s),pc=st.tot?Math.round(st.done/st.tot*100):0,fin=!!st.champ;
+  const b=fin?'<span class="badge b-done">Selesai</span>':st.live?'<span class="badge b-live">LIVE</span>':st.done?'<span class="badge b-done" style="opacity:.7">Berjalan</span>':'<span class="badge" style="background:var(--bd)">Belum mulai</span>';
+  return`<div class="pn p-4 cursor-pointer ${st.live?'siap':''}" style="${st.live?'border-color:#e11d48':''}" onclick="open_('${s.id}')" tabindex="0" onkeydown="if(event.key=='Enter')open_('${s.id}')"><div class="flex items-center justify-between mb-2"><span class="hd text-2xl">${esc(s.cat||'Utama')}</span>${b}</div>
+  <div class="text-sm mb-2" style="color:var(--mu)">${s.size} peserta · ${st.filled} nama terisi</div>
+  <div style="height:8px;background:var(--bd);border-radius:9px;overflow:hidden"><div style="height:100%;width:${pc}%;background:var(--ac)"></div></div>
+  <div class="text-xs mt-1 mb-2" style="color:var(--mu)">${st.done}/${st.tot} pertandingan selesai</div>
+  ${fin?`<div class="font-semibold">🏆 Juara 1: ${esc(st.champ)}</div>`:st.nx?`<div class="text-sm font-semibold">${esc(st.nx)}</div>`:'<div class="text-sm" style="color:var(--mu)">Klik untuk mengisi peserta</div>'}</div>`}).join('')}</div></div>`).join('')}
+function delSport(){if(S.sports.length<2)return toast('Minimal satu cabang');if(!confirm('Hapus bagan "'+full(sp())+'"?'))return;S.sports=S.sports.filter(x=>x.id!=S.cur);S.cur=S.sports[0].id;S.view='dash';save();render()}
+function setSize(n){const s=sp();if(n==s.size)return;if(s.m.flat().some(m=>m.w!=null)&&!confirm('Mengubah jumlah peserta akan mereset hasil pertandingan. Lanjutkan?'))return render();
+ const t=s.third,ns=mk(s.name,n,s.players);ns.id=s.id;ns.bg=s.bg;ns.cat=s.cat;ns.bo=s.bo||3;ns.third=t&&n>=4;S.sports[S.sports.indexOf(s)]=ns;save();render();renderPL()}
+function setBo(v){v=Math.max(1,Math.min(15,v||3));sp().bo=v;save();render()}
+function setThird(v){sp().third=v;save();render()}
+/* ---- modal ---- */
+function modal(h){$('modal').innerHTML=`<div class="mo" onclick="if(event.target==this)closeM()"><div class="pn md" role="dialog">${h}</div></div>`}
+function closeM(){$('modal').innerHTML=''}
+function img(file,max,cb){const f=new FileReader;f.onload=()=>{const i=new Image;i.onload=()=>{const k=Math.min(1,max/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.7))};i.src=f.result};f.readAsDataURL(file)}
+function editP(i){const p=sp().players[i];modal(`<h3 class="hd text-2xl mb-3">Peserta ${i+1}</h3><div class="flex items-center gap-3 mb-3"><div id="pv">${av(i)}</div><input type="file" accept="image/*" id="pf" class="text-sm"></div><input id="pnm" class="inp mb-3" value="${esc(p.n)}" placeholder="Nama peserta"><div class="flex gap-2 justify-end"><button class="btn" onclick="sp().players[${i}].p='';save();render();renderPL();closeM()">Hapus foto</button><button class="btn pri" onclick="sp().players[${i}].n=$('pnm').value;save();render();renderPL();closeM()">Simpan</button></div>`);
+ $('pf').onchange=e=>e.target.files[0]&&img(e.target.files[0],96,d=>{sp().players[i].p=d;save();$('pv').innerHTML=av(i);render();renderPL()})}
+function drawSets(n,cur){n=Math.max(1,Math.min(15,n||1));const old=cur||[...document.querySelectorAll('.setr')].map(r=>{const i=r.querySelectorAll('input');return[i[0].value,i[1].value]});
+ $('sets').innerHTML=Array.from({length:n},(_,k)=>`<div class="setr flex items-center gap-2 mb-1"><span class="text-sm flex-none" style="width:64px">Babak ${k+1}</span><input class="inp" inputmode="numeric" value="${esc(old[k]?.[0]??'')}"><span>:</span><input class="inp" inputmode="numeric" value="${esc(old[k]?.[1]??'')}"></div>`).join('')}
+function editM(key){const m=getM(key),pr=pair(key);const nm=i=>i==null?'—':esc(pn(i));
+ modal(`<h3 class="hd text-2xl mb-1">Jadwal &amp; skor</h3><p class="text-sm mb-3" style="color:var(--mu)">${nm(pr[0])} vs ${nm(pr[1])}</p>
+ <div class="grid grid-cols-2 gap-2 mb-2"><div><label class="text-sm">Waktu pertandingan</label><input type="datetime-local" id="mt" class="inp" value="${esc(m.t)}"></div>
+ <div><label class="text-sm">Status</label><select id="ms" class="inp">${ST.map((x,i)=>`<option value="${i}" ${m.s==i?'selected':''}>${x}</option>`).join('')}</select></div></div>
+ <label class="text-sm">Jumlah babak pertandingan ini <span style="color:var(--mu)">(kosong = ikut bagan: ${sp().bo||3})</span></label>
+ <input id="mbo" type="number" min="1" max="15" class="inp mb-3" value="${m.bo||''}" oninput="drawSets(+this.value||${sp().bo||3})">
+ <div class="flex text-xs mb-1" style="color:var(--mu);padding-left:72px"><span class="flex-1 truncate">${nm(pr[0])}</span><span style="width:16px"></span><span class="flex-1 truncate">${nm(pr[1])}</span></div>
+ <div id="sets" class="mb-2"></div>
+ <p class="text-xs mb-2" style="color:var(--mu)">Isi skor tiap babak. Jumlah babak yang dimenangkan dihitung otomatis, dan pemenang terpilih saat salah satu sisi sudah menang mayoritas.</p>
+ <div class="grid grid-cols-2 gap-2 mb-3"><div><label class="text-sm">Skor akhir A (opsional)</label><input id="ma" class="inp" value="${esc(m.sa)}"></div><div><label class="text-sm">Skor akhir B (opsional)</label><input id="mb" class="inp" value="${esc(m.sb)}"></div></div>
+ <div class="flex gap-2 justify-end"><button class="btn" onclick="closeM()">Batal</button><button class="btn pri" onclick="saveM('${key}')">Simpan</button></div>`);
+ drawSets(boOf(m),m.sets||[])}
+function saveM(key){const m=getM(key),pr=pair(key);m.t=$('mt').value;m.s=+$('ms').value;m.bo=Math.max(0,Math.min(15,+$('mbo').value||0));
+ const n=boOf(m);m.sets=[...document.querySelectorAll('.setr')].map(r=>{const i=r.querySelectorAll('input');return[i[0].value.trim(),i[1].value.trim()]});
+ const[a,b]=sw(m);if(a+b>0){m.sa=String(a);m.sb=String(b)}else{m.sa=$('ma').value;m.sb=$('mb').value}
+ const need=Math.ceil(n/2),w=a>=need?0:b>=need?1:null;
+ if(pr[0]!=null&&pr[1]!=null&&w!=null&&m.w!==w){const was=podReady();m.w=w;m.s=2;if(key!='tp'){const[r,i]=key.split('-').map(Number);clearDown(r,i)}save();closeM();render();if(!was&&podReady())setTimeout(()=>showPod(),500);return}
+ save();closeM();render()}
+function settings(){const s=sp();modal(`<h3 class="hd text-2xl mb-3">Tema &amp; latar</h3>
+ <div class="grid grid-cols-2 gap-2 mb-3">${[['light','Terang'],['dark','Gelap'],['neon','Neon Sports'],['ocean','Samudra']].map(([k,n])=>`<button class="btn ${S.theme==k?'pri':''}" onclick="S.theme='${k}';save();render();settings()">${n}</button>`).join('')}</div>
+ <label class="text-sm">Foto latar untuk bagan "${esc(full(s))}"</label><input type="file" accept="image/*" id="bgf" class="text-sm block my-2">
+ <button class="btn mb-4" onclick="sp().bg='';save();render()">Hapus latar</button>
+ <h3 class="hd text-xl mb-1">Google Sheets (Apps Script Webhook)</h3>
+ <input id="hk" class="inp mb-1" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.hook)}">
+ <details class="text-xs mb-3" style="color:var(--mu)"><summary class="cursor-pointer">Contoh kode Apps Script</summary><pre class="whitespace-pre-wrap mt-1">function doPost(e){
+ var d=JSON.parse(e.postData.contents);
+ var ss=SpreadsheetApp.getActiveSpreadsheet();
+ for(var n in d.sheets){
+  var sh=ss.getSheetByName(n)||ss.insertSheet(n);
+  sh.clear();
+  var v=d.sheets[n];
+  sh.getRange(1,1,v.length,v[0].length).setValues(v);
+ }
+ return ContentService.createTextOutput('ok');
+}
+// Deploy &gt; Web app &gt; Execute as: Me, Access: Anyone</pre></details>
+ <div class="flex gap-2 justify-between"><button class="btn" onclick="if(confirm('Hapus SEMUA data?')){localStorage.removeItem(KEY);location.reload()}">Reset semua</button><button class="btn pri" onclick="S.hook=$('hk').value.trim();save();closeM()">Selesai</button></div>`);
+ $('bgf').onchange=e=>e.target.files[0]&&img(e.target.files[0],1024,d=>{sp().bg=d;save();render()})}
+/* ---- podium ---- */
+function showPod(manual){const p=podium();if(!p)return manual&&toast('Final belum selesai');
+ const col=['#ffd23f','#cfd8e3','#d08a4e'],h=[150,110,80],ord=[1,0,2],ml=['Juara 2','Juara 1','Juara 3'];
+ modal(`<div class="text-center"><div class="tr">🏆</div><h3 class="hd text-3xl">Podium ${esc(full(sp()))}</h3><div class="pod">${ord.map(k=>`<div>${p[k]==null?'':`<div class="flex justify-center mb-1" style="transform:scale(${k?1.1:1.5})">${av(p[k])}</div><div class="font-bold text-sm break-words">${esc(pn(p[k]))}</div><div class="text-xs mb-1" style="color:var(--mu)">${ml[ord.indexOf(k)]}</div>`}<div class="blk" style="height:${h[k]}px;background:${col[k]}">${k+1}</div></div>`).join('')}</div><button class="btn pri mt-3" onclick="closeM()">Tutup</button></div>`);
+ for(let i=0;i<60;i++){const c=document.createElement('i');c.className='cf';c.style.cssText=`left:${Math.random()*100}vw;background:hsl(${Math.random()*360},90%,60%);animation-duration:${2+Math.random()*2.5}s;animation-delay:${Math.random()*.8}s`;document.body.appendChild(c);setTimeout(()=>c.remove(),5500)}}
+/* ---- ekspor ---- */
+function tables(){const s=sp(),T=[['Babak','Pertandingan','Peserta A','Peserta B','Skor A','Skor B','Pemenang','Jadwal','Status']],J={};const N=Math.max(...keys().map(k=>boOf(getM(k))));T[0].push('Format',...Array.from({length:N},(_,i)=>'Babak '+(i+1)));
+ const add=(i,t)=>{if(i!=null)(J[i]=J[i]||[]).push(t)};
+ keys().forEach(k=>{const m=getM(k),pr=pair(k),r=k=='tp'?'Juara 3':rName(+k.split('-')[0]),no=k=='tp'?1:+k.split('-')[1]+1;
+  T.push([r,no,pn(pr[0])||'-',pn(pr[1])||'-',m.sa,m.sb,m.w==null?'':pn(pr[m.w]),m.t.replace('T',' '),ST[m.s],'Bo'+boOf(m),...Array.from({length:N},(_,i)=>{const x=(m.sets||[])[i];return x&&(x[0]!==''||x[1]!=='')?x[0]+'-'+x[1]:''})]);
+  if(pr[0]!=null&&pr[1]!=null)pr.forEach((i,sd)=>add(i,{r,t:`${r}: vs ${pn(pr[1-sd])} → ${m.w==null?'belum ada hasil':m.w==sd?'MENANG':'KALAH'}${m.sa!==''||m.sb!==''?' ('+(sd?m.sb+'-'+m.sa:m.sa+'-'+m.sb)+')':''}${ss(m,sd)}`}))});
+ const P=[['No','Peserta','Babak terakhir','Perjalanan']];
+ s.players.forEach((p,i)=>{const j=J[i]||[];P.push([i+1,pn(i),j.length?j[j.length-1].r:'-',j.map(x=>x.t).join(' | ')])});
+ const pd=podium()||[],W=[['Peringkat','Peserta']];['Juara 1','Juara 2','Juara 3'].forEach((n,i)=>W.push([n,pd[i]!=null?pn(pd[i]):'-']));
+ return{Pertandingan:T,'Perjalanan Peserta':P,Juara:W}}
+function exportX(fmt){const t=tables(),nm=full(sp()).replace(/[^\w-]+/g,'_');
+ if(fmt=='csv'){const w=XLSX.utils.aoa_to_sheet(t.Pertandingan),b=new Blob(['\ufeff'+XLSX.utils.sheet_to_csv(w)],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=nm+'.csv';a.click();return}
+ const wb=XLSX.utils.book_new();for(const n in t)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(t[n]),n);XLSX.writeFile(wb,nm+'.xlsx')}
+async function syncSheet(){if(!S.hook){toast('Isi URL webhook di menu Tema');return settings()}
+ try{await fetch(S.hook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({cabang:full(sp()),sheets:tables()})});toast('Data terkirim ke Google Sheets')}catch(e){toast('Gagal mengirim: '+e.message)}}
+/* ---- hak akses & sinkronisasi server ---- */
+['adv','editM','saveM','editP','setBo','setSize','setThird','newB','mkB','editB','saveB','delSport','settings','exportX','syncSheet'].forEach(n=>{const f=window[n];window[n]=function(...a){if(!ADMIN)return toast('Mode pantau: hanya admin yang bisa mengubah');return f.apply(this,a)}});
+function authBtn(){if(!SERVER)return'';return(ADMIN?'':'<span class="text-xs" style="color:var(--mu)">Mode pantau, diperbarui otomatis</span> ')+`<button class="btn" onclick="authClick()">${ADMIN?'🔓 Keluar admin':'🔒 Masuk admin'}</button>`}
+function ui(){document.body.classList.toggle('viewer',!ADMIN)}
+function useRemote(st){const n={cur:S.cur,view:S.view};S=st;S.cur=S.sports.some(x=>x.id==n.cur)?n.cur:S.sports[0].id;S.view=n.view}
+function loadNav(){let n;try{n=JSON.parse(localStorage.getItem('bagan_nav'))}catch(e){}if(n&&S.sports.some(x=>x.id==n.cur))S.cur=n.cur;S.view=n?.view||'dash'}
+function authClick(){if(ADMIN)return logout();modal(`<h3 class="hd text-2xl mb-3">Masuk admin</h3><input type="password" id="pw" class="inp mb-3" placeholder="Kata sandi admin" onkeydown="if(event.key=='Enter')doLogin()"><div class="flex gap-2 justify-end"><button class="btn" onclick="closeM()">Batal</button><button class="btn pri" onclick="doLogin()">Masuk</button></div>`);$('pw').focus()}
+async function doLogin(){try{const r=await fetch('api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('pw').value})});
+ if(!r.ok)return toast(r.status==429?'Terlalu banyak percobaan, tunggu semenit':'Kata sandi salah');
+ TOKEN=(await r.json()).token;localStorage.setItem('bagan_tok',TOKEN);closeM();await pull(true)}catch(e){toast('Server tidak terjangkau')}}
+async function logout(){if(pushT)await push();TOKEN='';localStorage.removeItem('bagan_tok');await pull(true)}
+async function pull(force){const r=await fetch('api/state',{headers:auth(),cache:'no-store'});const j=await r.json();
+ if(!force&&j.version===VER&&j.admin===ADMIN)return;ADMIN=j.admin===true;VER=j.version;if(j.state)useRemote(j.state);ui();render();renderPL()}
+async function init(){try{const r=await fetch('api/state',{headers:auth(),cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();if(!('admin' in j))throw 0;
+  SERVER=true;ADMIN=j.admin===true;VER=j.version;
+  if(j.state)useRemote(j.state);else if(!ADMIN)S=fresh();
+  loadNav();ui();render();renderPL();if(ADMIN&&!j.state)push();
+  pollT=setInterval(()=>{if(ADMIN||document.hidden)return;pull().catch(()=>{})},4000)}
+ catch(e){SERVER=false;ADMIN=true;ui();render()}}
+init();
+</script>
+</body>
+</html>
